@@ -1,0 +1,103 @@
+# MyAI Training Configuration
+
+# Model settings
+model:
+  name: "facebook/opt-125m"  # Base model to fine-tune
+  cache_dir: "./cache"
+  trust_remote_code: true
+
+# Training settings
+training:
+  output_dir: "./output"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_steps: 500
+  max_steps: -1  # -1 means train for full epochs
+  
+  # Optimization
+  fp16: true  # Use mixed precision training
+  bf16: false  # Use bfloat16 if supported
+  gradient_checkpointing: true
+  optim: "adamw_torch"
+  
+  # Logging
+  logging_steps: 10
+  logging_dir: "./logs"
+  report_to: ["tensorboard"]  # Can add "wandb" if configured
+  
+  # Evaluation
+  evaluation_strategy: "steps"
+  eval_steps: 500
+  save_strategy: "steps"
+  save_steps: 500
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  
+  # Other
+  seed: 42
+  dataloader_num_workers: 4
+  remove_unused_columns: false
+  push_to_hub: false
+
+# LoRA settings (for efficient fine-tuning)
+lora:
+  enabled: true
+  r: 8  # LoRA rank
+  lora_alpha: 16
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]  # Modules to apply LoRA
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# QLoRA settings (quantized LoRA)
+qlora:
+  enabled: false  # Set to true for 4-bit quantization
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "float16"
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+
+# Dataset settings
+dataset:
+  name: "wikitext"  # HuggingFace dataset name
+  config: "wikitext-2-raw-v1"
+  train_split: "train"
+  eval_split: "validation"
+  test_split: "test"
+  
+  # Or use custom dataset
+  # train_file: "./data/train.jsonl"
+  # eval_file: "./data/eval.jsonl"
+  # test_file: "./data/test.jsonl"
+  
+  # Preprocessing
+  max_length: 512
+  preprocessing_num_workers: 4
+  overwrite_cache: false
+
+# Generation settings (for evaluation)
+generation:
+  max_new_tokens: 100
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 50
+  do_sample: true
+
+# Hardware settings
+hardware:
+  device: "auto"  # auto, cuda, cpu
+  num_gpus: 1
+  distributed: false
+  deepspeed: null  # Path to deepspeed config if using
+
+# Weights & Biases (optional)
+wandb:
+  enabled: false
+  project: "myai-training"
+  entity: null
+  name: null  # Run name, auto-generated if null

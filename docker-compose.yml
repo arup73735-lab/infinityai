@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: myai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MODEL_NAME=facebook/opt-125m
+      - DEVICE=cpu
+      - ENABLE_QUANTIZATION=false
+      - LOG_LEVEL=INFO
+      - ENABLE_STRICT_MODERATION=true
+      - JWT_SECRET_KEY=change-this-in-production
+      - PROMETHEUS_ENABLED=true
+    volumes:
+      - ./backend:/app
+      - model-cache:/root/.cache/huggingface
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - myai-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: myai-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - myai-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: myai-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - myai-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: myai-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    networks:
+      - myai-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: myai-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - myai-network
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  model-cache:
+
+networks:
+  myai-network:
+    driver: bridge
